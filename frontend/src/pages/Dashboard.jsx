@@ -1,8 +1,11 @@
 import React from 'react'
+import ResumeDashboard from '../components/dashboard/Dashboardcode'
 
 const Dashboard = () => {
   return (
-    <div>Dashboard</div> 
+    <div className=''>
+      <ResumeDashboard />
+    </div> 
   )
 }
 

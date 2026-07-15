@@ -48,7 +48,7 @@ const companyLogos = [
 
 export default function LogoLoopUsage() {
   return (
-    <div className=" mx-auto max-w-7xl px-6 md:px-10 lg:px-16">
+    <div className="bg-[#f0faff] mx-auto max-w-7xl px-6 md:px-10 lg:px-16">
       <div className="relative w-full overflow-hidden py-8">
       <LogoLoop
         logos={companyLogos}

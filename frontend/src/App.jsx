@@ -4,6 +4,7 @@ import { Routes, Route } from "react-router";
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import { useUser } from "@clerk/clerk-react";
+import Resumebuilder from './pages/Resumebuilder';
 
 const App = () => {
 
@@ -18,6 +19,7 @@ const App = () => {
         <Route path='/' element={<Home />} />
         <Route path='/login' element={<Login />} />
         <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/resumebuilder' element={<Resumebuilder />} />
       </Routes>
       
     </div>

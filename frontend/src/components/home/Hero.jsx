@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { ShieldCheck } from "lucide-react";
-import LogoloopUsage from "./Logoloopusage";
+
+import { useUser } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 
 
 
@@ -8,6 +10,16 @@ import LogoloopUsage from "./Logoloopusage";
 
 const HeroSection = () => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const { isSignedIn } = useUser();
+const navigate = useNavigate();
+
+const handleGetStarted = () => {
+  if (isSignedIn) {
+    navigate("/dashboard");
+  } else {
+    navigate("/login");
+  }
+};
 
     return (
         <section className="mt-25 bg-[#f0faff]">
@@ -49,7 +61,7 @@ const HeroSection = () => {
                     </p>
 
                     <div className="flex items-center gap-4 mt-8 text-sm">
-                        <button className="bg-[#05a2ff] hover:bg-slate-900 text-white text-lg active:scale-95 transition rounded-md px-9 h-19">
+                        <button onClick={handleGetStarted} className="bg-[#05a2ff] hover:bg-slate-900 text-white text-lg active:scale-95 transition rounded-md px-9 h-19">
                             Get Started for free
                         </button>
 
@@ -90,14 +102,7 @@ const HeroSection = () => {
                 </div>
 
             </main>
-            <h2 className="text-center mb-10 text-3xl md:text-5xl font-bold tracking-tight text-slate-700">
-          Trusted by professionals at
-        </h2>
-            {/* logo loop */}
-
-
-
-            <LogoloopUsage />
+            
             
         </section>
     );
