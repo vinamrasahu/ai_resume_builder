@@ -2,7 +2,7 @@ import React from 'react'
 
 const Editresume = () => {
   return (
-    <div>Editresume</div>
+    <div className='bg-red-500'> Editresume</div>
   )
 }
 
