@@ -13,7 +13,7 @@ function Sidebar({ active, onNavigate }) {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-sm">
                     <FileText size={18} />
                 </div>
-                <span className="text-xl font-extrabold tracking-tight text-gray-900">flowcv</span>
+                <span className="text-xl font-extrabold tracking-tight text-gray-900">Myresume</span>
             </div>
 
             <nav className="flex flex-1 flex-col gap-1">

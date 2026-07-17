@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 
 import Presview from '../components/editresume/preview';
 
+
 const Resumebuilder = () => {
   const { resumeId } = useParams();
 
@@ -37,8 +38,7 @@ const Resumebuilder = () => {
     return (
       <div>
 
-        <Editresume/>
-        <Presview/>
+        
       </div>
     )
   }

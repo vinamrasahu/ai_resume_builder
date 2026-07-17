@@ -9,6 +9,7 @@ import Footer from '../components/Footer'
 
 
 
+
 const Home = () => {
   return (
     <div>
@@ -20,7 +21,8 @@ const Home = () => {
         <Marquee className="bg-[#f0faff]"  />
         <Feature />
         <Section1 />
-        <Section2 />  
+        <Section2 /> 
+        
         <Footer/>
         
     </div>
