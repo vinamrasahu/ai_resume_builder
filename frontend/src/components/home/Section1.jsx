@@ -5,7 +5,7 @@ import ParallaxStackCards from '../home/StackCards'
 
 const Section1 = () => {
   return (
-    <div className="mt-20">
+    <div className="mt-20 ">
        
         <div className="mb-24 text-center">
 
@@ -24,7 +24,9 @@ const Section1 = () => {
           </p>
 
         </div>
-        <ParallaxStackCards smoothScroll={false} />
+        <div className='bg-[#0068c6]'>
+          <ParallaxStackCards smoothScroll={false} />
+        </div>
     </div>
   )
 }

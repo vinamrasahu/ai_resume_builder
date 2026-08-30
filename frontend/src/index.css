@@ -160,3 +160,45 @@
     @apply font-sans;
     }
 }
+
+
+/* resume editor form scaling  */
+
+.resume-editor-content {
+  zoom: 0.9;
+}
+
+@media (max-width: 639px) {
+  .resume-editor-content {
+    zoom: 1;
+  }
+}
+
+
+@keyframes progressShine {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(45px);
+  }
+}
+
+/* @keyframes progressPulse {
+  0% {
+    transform: translate(50%, -50%) scale(0.5);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translate(50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+} */
