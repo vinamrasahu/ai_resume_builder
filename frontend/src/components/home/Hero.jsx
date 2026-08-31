@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 
-import { useUser } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 
 
@@ -10,10 +10,11 @@ import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
     const [menuOpen, setMenuOpen] = useState(false);
-    const { isSignedIn } = useUser();
+    const { isSignedIn } = useAuth();
 const navigate = useNavigate();
 
 const handleGetStarted = () => {
+    
   if (isSignedIn) {
     navigate("/dashboard");
   } else {

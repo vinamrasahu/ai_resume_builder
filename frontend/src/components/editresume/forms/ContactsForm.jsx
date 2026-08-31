@@ -435,6 +435,75 @@ export default function ContactsForm({ data, onChange }) {
 
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+
+            <div>
+              <label
+                htmlFor="linkedin"
+                className="block text-sm text-gray-700 mb-2"
+              >
+                LinkedIn
+              </label>
+
+              <input
+                id="linkedin"
+                name="linkedin"
+                type="url"
+                value={data?.linkedin || ""}
+                onChange={handleChange("linkedin")}
+                onFocus={handleFocus("linkedin")}
+                onBlur={handleBlur("linkedin")}
+                placeholder="https://linkedin.com/in/yourname"
+                className={getInputClasses("linkedin")}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="github"
+                className="block text-sm text-gray-700 mb-2"
+              >
+                GitHub
+              </label>
+
+              <input
+                id="github"
+                name="github"
+                type="url"
+                value={data?.github || ""}
+                onChange={handleChange("github")}
+                onFocus={handleFocus("github")}
+                onBlur={handleBlur("github")}
+                placeholder="https://github.com/username"
+                className={getInputClasses("github")}
+              />
+            </div>
+
+          </div>
+
+          <div className="mt-6">
+
+            <label
+              htmlFor="portfolio"
+              className="block text-sm text-gray-700 mb-2"
+            >
+              Portfolio
+            </label>
+
+            <input
+              id="portfolio"
+              name="portfolio"
+              type="url"
+              value={data?.portfolio || ""}
+              onChange={handleChange("portfolio")}
+              onFocus={handleFocus("portfolio")}
+              onBlur={handleBlur("portfolio")}
+              placeholder="https://yourportfolio.com"
+              className={getInputClasses("portfolio")}
+            />
+
+          </div>
+
         </div>
 
       </div>
@@ -451,4 +520,4 @@ export default function ContactsForm({ data, onChange }) {
 
     </form>
   );
-};
+}; 

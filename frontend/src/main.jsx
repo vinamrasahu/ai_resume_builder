@@ -3,15 +3,15 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from "react-router";
 import './index.css'
 import App from './App.jsx'
-import { ClerkProvider } from "@clerk/clerk-react";
+import { AuthProvider } from './context/AuthContext.jsx';
 
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
+    <AuthProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </ClerkProvider>
+    </AuthProvider>
   </StrictMode>,
 )

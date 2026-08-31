@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect,useRef ,useState } from "react";
 import { FileText, Briefcase, BookOpen, Sparkles, FolderIcon, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { ZoomIn, ZoomOut } from "lucide-react";
@@ -11,6 +11,11 @@ import ResumePreview from "@/components/editresume/preview";
 import SkillSection from "@/components/editresume/forms/SkillSection";
 import ProjectSection from "@/components/editresume/forms/ProjectSection";
 import Navbar from "@/components/editresume/Navbar";
+
+import {
+  getResume,
+  updateResume,
+} from "../api/resumeApi";
 
 const Resumebuilder = () => {
   const { resumeId } = useParams();
@@ -30,6 +35,12 @@ const Resumebuilder = () => {
     accent_color: "#000000",
     public: false,
   });
+
+  const [saveStatus, setSaveStatus] = useState("saved");
+  const saveTimeoutRef = useRef(null);
+const isInitialLoadRef = useRef(true);
+
+
   const [isPreviewZoomed, setIsPreviewZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({
     x: 0,
@@ -38,14 +49,23 @@ const Resumebuilder = () => {
   const [showZoomCursor, setShowZoomCursor] = useState(false);
 
   const loadExistingResume = async (id) => {
-    // API call here
-    const resume = "";
+  try {
+    const response = await getResume(id);
 
-    if (resume) {
-      setResumedata(resume);
-      document.title = `${resume.title} - myResume`;
+    if (response?.resume) {
+      setResumedata(response.resume);
+      isInitialLoadRef.current = false;
+setSaveStatus("saved");
+
+      document.title = `${response.resume.title} - myResume`;
     }
-  };
+  } catch (error) {
+    console.error(
+      "Failed to load resume:",
+      error
+    );
+  }
+};
 
   const [activeSectionIndex, setactiveSectionIndex] = useState(0);
 
@@ -90,10 +110,94 @@ const Resumebuilder = () => {
   const activeSection = sections[activeSectionIndex];
 
   useEffect(() => {
-    if (resumeId) {
-      loadExistingResume(resumeId);
+  if (!resumeId) return;
+
+  isInitialLoadRef.current = true;
+
+  loadExistingResume(resumeId);
+}, [resumeId]);
+
+
+useEffect(() => {
+  /*
+  |--------------------------------------------------------------------------
+  | Don't autosave while the initial resume is loading.
+  |--------------------------------------------------------------------------
+  */
+
+  if (!resumeId || isInitialLoadRef.current) {
+    return;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Mark as unsaved immediately after a user change.
+  |--------------------------------------------------------------------------
+  */
+
+  setSaveStatus("saving");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Clear previous pending save.
+  |--------------------------------------------------------------------------
+  */
+
+  if (saveTimeoutRef.current) {
+    clearTimeout(saveTimeoutRef.current);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Debounce API call.
+  |--------------------------------------------------------------------------
+  */
+
+  saveTimeoutRef.current = setTimeout(async () => {
+    try {
+      await updateResume(resumeId, {
+        title: resumedata.title,
+        personal_info: resumedata.personal_info,
+        personal_summary: resumedata.personal_summary,
+        personal_summary_visible:
+          resumedata.personal_summary_visible,
+
+        experience: resumedata.experience,
+        experienceTitle:
+          resumedata.experienceTitle,
+
+        education: resumedata.education,
+        skills: resumedata.skills,
+        projects: resumedata.projects,
+
+        templates: resumedata.templates,
+        accent_color: resumedata.accent_color,
+        public: resumedata.public,
+      });
+
+      setSaveStatus("saved");
+    } catch (error) {
+      console.error(
+        "Autosave failed:",
+        error
+      );
+
+      setSaveStatus("error");
     }
-  }, [resumeId]);
+  }, 1000);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Cleanup
+  |--------------------------------------------------------------------------
+  */
+
+  return () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+  };
+}, [resumedata, resumeId]);
 
   const progress =
     (activeSectionIndex * 100) / (sections.length - 1);
@@ -606,13 +710,21 @@ const Resumebuilder = () => {
 
             <div className="absolute bottom-3 left-4 hidden items-center gap-2 text-xs text-gray-500 lg:flex">
 
-              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-gray-300 text-[8px] text-white">
-                ✓
-              </span>
+  <span className="flex h-3 w-3 items-center justify-center rounded-full bg-gray-300 text-[8px] text-white">
+    {saveStatus === "saved"
+      ? "✓"
+      : saveStatus === "saving"
+        ? "•"
+        : "!"}
+  </span>
 
-              Saved
+  {saveStatus === "saved"
+    ? "Saved"
+    : saveStatus === "saving"
+      ? "Saving..."
+      : "Save failed"}
 
-            </div>
+</div>
 
           </div>
 
