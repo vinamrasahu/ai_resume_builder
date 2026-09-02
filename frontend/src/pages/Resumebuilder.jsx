@@ -12,6 +12,8 @@ import SkillSection from "@/components/editresume/forms/SkillSection";
 import ProjectSection from "@/components/editresume/forms/ProjectSection";
 import Navbar from "@/components/editresume/Navbar";
 
+import { useAuth } from "../context/AuthContext";
+
 import {
   getResume,
   updateResume,
@@ -19,6 +21,12 @@ import {
 
 const Resumebuilder = () => {
   const { resumeId } = useParams();
+
+   const {
+    user,
+    isSignedIn,
+    isLoading: isAuthLoading,
+  } = useAuth();
 
   const [resumedata, setResumedata] = useState({
     _id: "",
@@ -40,7 +48,8 @@ const Resumebuilder = () => {
   const saveTimeoutRef = useRef(null);
 const isInitialLoadRef = useRef(true);
 
-
+  const [isLoadingResume, setIsLoadingResume] =
+  useState(Boolean(resumeId));
   const [isPreviewZoomed, setIsPreviewZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({
     x: 0,
@@ -48,22 +57,62 @@ const isInitialLoadRef = useRef(true);
   });
   const [showZoomCursor, setShowZoomCursor] = useState(false);
 
-  const loadExistingResume = async (id) => {
+
+
+  const normalizeResumeForFrontend = (resume) => {
+  const personalInfo = resume?.personal_info || {};
+
+  const fullName = (personalInfo.fullName || "").trim();
+
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+
+  return {
+    ...resume,
+
+    personal_info: {
+      ...personalInfo,
+
+      firstName:
+        personalInfo.firstName ||
+        nameParts[0] ||
+        "",
+
+      lastName:
+        personalInfo.lastName ||
+        (nameParts.length > 1
+          ? nameParts.slice(1).join(" ")
+          : ""),
+    },
+  };
+};
+
+const loadExistingResume = async (id) => {
   try {
+    setIsLoadingResume(true);
+
     const response = await getResume(id);
 
-    if (response?.resume) {
-      setResumedata(response.resume);
-      isInitialLoadRef.current = false;
-setSaveStatus("saved");
-
-      document.title = `${response.resume.title} - myResume`;
+    if (!response?.resume) {
+      throw new Error("Resume not found.");
     }
+
+    const normalizedResume =
+      normalizeResumeForFrontend(response.resume);
+
+    setResumedata(normalizedResume);
+
+    isInitialLoadRef.current = false;
+    setSaveStatus("saved");
+
+    document.title =
+      `${normalizedResume.title} - myResume`;
   } catch (error) {
     console.error(
       "Failed to load resume:",
       error
     );
+  } finally {
+    setIsLoadingResume(false);
   }
 };
 
@@ -109,69 +158,100 @@ setSaveStatus("saved");
 
   const activeSection = sections[activeSectionIndex];
 
-  useEffect(() => {
-  if (!resumeId) return;
+ useEffect(() => {
+  if (!resumeId) {
+    setIsLoadingResume(false);
+    return;
+  }
+
+  // Firebase is still restoring the session.
+  // Do NOT call the API yet.
+  if (isAuthLoading) {
+    return;
+  }
+
+  // Firebase finished loading but no user exists.
+  if (!isSignedIn || !user) {
+    setIsLoadingResume(false);
+
+    console.error(
+      "Cannot load resume: user is not authenticated."
+    );
+
+    return;
+  }
 
   isInitialLoadRef.current = true;
 
   loadExistingResume(resumeId);
-}, [resumeId]);
+}, [
+  resumeId,
+  isAuthLoading,
+  isSignedIn,
+  user,
+]);
 
 
 useEffect(() => {
-  /*
-  |--------------------------------------------------------------------------
-  | Don't autosave while the initial resume is loading.
-  |--------------------------------------------------------------------------
-  */
-
   if (!resumeId || isInitialLoadRef.current) {
     return;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Mark as unsaved immediately after a user change.
-  |--------------------------------------------------------------------------
-  */
-
   setSaveStatus("saving");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Clear previous pending save.
-  |--------------------------------------------------------------------------
-  */
 
   if (saveTimeoutRef.current) {
     clearTimeout(saveTimeoutRef.current);
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Debounce API call.
-  |--------------------------------------------------------------------------
-  */
-
   saveTimeoutRef.current = setTimeout(async () => {
     try {
+      // ----------------------------------------------------
+      // Prepare personal information for backend
+      // ----------------------------------------------------
+
+      const personalInfo = resumedata.personal_info || {};
+
+      const fullName = [
+        personalInfo.firstName,
+        personalInfo.lastName,
+      ]
+        .map((name) => name?.trim())
+        .filter(Boolean)
+        .join(" ");
+
+      // ----------------------------------------------------
+      // Save resume
+      // ----------------------------------------------------
+
       await updateResume(resumeId, {
         title: resumedata.title,
-        personal_info: resumedata.personal_info,
+
+        personal_info: {
+          ...personalInfo,
+          fullName,
+        },
+
         personal_summary: resumedata.personal_summary,
+
         personal_summary_visible:
           resumedata.personal_summary_visible,
 
         experience: resumedata.experience,
+
         experienceTitle:
           resumedata.experienceTitle,
 
         education: resumedata.education,
+
         skills: resumedata.skills,
+
         projects: resumedata.projects,
 
         templates: resumedata.templates,
-        accent_color: resumedata.accent_color,
+
+        accent_color:
+          resumedata.accent_color,
+
         public: resumedata.public,
       });
 
@@ -186,18 +266,22 @@ useEffect(() => {
     }
   }, 1000);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Cleanup
-  |--------------------------------------------------------------------------
-  */
-
   return () => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
   };
 }, [resumedata, resumeId]);
+
+if (isLoadingResume) {
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-[#f1f5f8]">
+      <div className="text-sm text-gray-500">
+        Loading resume...
+      </div>
+    </div>
+  );
+}
 
   const progress =
     (activeSectionIndex * 100) / (sections.length - 1);

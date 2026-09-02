@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   MoreVertical,
   FileText,
   Pencil,
-  Copy,
   Download,
   Trash2,
 } from "lucide-react";
@@ -16,8 +15,7 @@ import NewResumeCard from "../dashboard/Addresume";
 import {
   getResumes,
   updateResume,
-  deleteResume,
-  createResume,
+  deleteResume as deleteResumeFromBackend,
 } from "../../api/resumeApi";
 
 /*
@@ -29,15 +27,32 @@ import {
 function timeAgo(date) {
   if (!date) return "edited just now";
 
-  const diffMs = Date.now() - new Date(date).getTime();
+  const timestamp = new Date(date).getTime();
 
-  if (Number.isNaN(diffMs)) return "edited just now";
+  if (Number.isNaN(timestamp)) {
+    return "edited just now";
+  }
 
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMs = Math.max(
+    0,
+    Date.now() - timestamp
+  );
 
-  if (days <= 0) return "edited today";
-  if (days === 1) return "edited 1 day ago";
-  if (days < 30) return `edited ${days} days ago`;
+  const days = Math.floor(
+    diffMs / (1000 * 60 * 60 * 24)
+  );
+
+  if (days === 0) {
+    return "edited today";
+  }
+
+  if (days === 1) {
+    return "edited 1 day ago";
+  }
+
+  if (days < 30) {
+    return `edited ${days} days ago`;
+  }
 
   const months = Math.floor(days / 30);
 
@@ -50,51 +65,88 @@ function timeAgo(date) {
 |--------------------------------------------------------------------------
 | Convert Backend Resume → Dashboard Resume
 |--------------------------------------------------------------------------
-|
-| Backend data remains available on the object.
-| Dashboard-specific aliases are added so existing UI doesn't need
-| to be changed.
-|
 */
 
-function normalizeResume(resume) {
-  const personalInfo = resume.personal_info || {};
+function normalizeResume(resume = {}) {
+  const personalInfo =
+    resume.personal_info || {};
 
-  const experience = Array.isArray(resume.experience)
-    ? resume.experience.map((exp) => ({
-      role: exp.jobTitle || "",
-      company: exp.employer || "",
-      bullets: exp.description
-        ? exp.description
+  const experience = Array.isArray(
+    resume.experience
+  )
+    ? resume.experience.map((exp = {}) => ({
+        role: exp.jobTitle || "",
+
+        company: exp.employer || "",
+
+        bullets: String(
+          exp.description || ""
+        )
           .split("\n")
           .map((item) => item.trim())
-          .filter(Boolean)
-        : [],
-      dates: exp.currentlyWorking
-        ? `${exp.startDate || ""} - Present`
-        : `${exp.startDate || ""}${exp.endDate ? ` - ${exp.endDate}` : ""}`,
-    }))
+          .filter(Boolean),
+
+        dates: exp.currentlyWorking
+          ? `${exp.startDate || ""} - Present`
+          : `${exp.startDate || ""}${
+              exp.endDate
+                ? ` - ${exp.endDate}`
+                : ""
+            }`,
+      }))
     : [];
 
-  const skills = Array.isArray(resume.skills)
+  const skills = Array.isArray(
+    resume.skills
+  )
     ? resume.skills
-      .map((skill) => skill.skill)
-      .filter(Boolean)
-      .join(", ")
+        .map((skill) =>
+          typeof skill === "string"
+            ? skill
+            : skill?.skill
+        )
+        .filter(Boolean)
+        .join(", ")
     : "";
+
+  /*
+  |--------------------------------------------------------------------------
+  | Resume ID
+  |--------------------------------------------------------------------------
+  |
+  | Backend primary identifier:
+  | resumeId
+  |
+  | Fallbacks are kept for safety.
+  |
+  */
+
+  const id =
+    resume.resumeId ||
+    resume._id ||
+    resume.id;
 
   return {
     ...resume,
 
     /*
     |--------------------------------------------------------------------------
-    | Existing Dashboard State/UI Names
+    | Existing Dashboard Names
     |--------------------------------------------------------------------------
     */
 
-    id: resume.resumeId || resume._id,
-    name: resume.title,
-    fullName: personalInfo.fullName || "",
+    id,
+
+    resumeId:
+      resume.resumeId || id,
+
+    name:
+      resume.title ||
+      "Untitled Resume",
+
+    fullName:
+      personalInfo.fullName || "",
+
     contact: [
       personalInfo.email,
       personalInfo.phone,
@@ -103,44 +155,18 @@ function normalizeResume(resume) {
       .filter(Boolean)
       .join(" • "),
 
-    summary: resume.personal_summary || "",
+    summary:
+      resume.personal_summary || "",
 
     skills,
 
     experience,
 
-    editedAt: resume.updatedAt || resume.createdAt,
+    editedAt:
+      resume.updatedAt ||
+      resume.createdAt,
+
     size: "Resume",
-  };
-}
-
-/*
-|--------------------------------------------------------------------------
-| Convert Dashboard Resume → Create Resume Payload
-|--------------------------------------------------------------------------
-|
-| Only fields accepted by backend validation are sent.
-|
-*/
-
-function getCreatePayload(resume, title) {
-  return {
-    title,
-    personal_info: resume.personal_info || {},
-    personal_summary: resume.personal_summary || "",
-    personal_summary_visible:
-      resume.personal_summary_visible ?? true,
-
-    experience: resume.experience || [],
-    experienceTitle: resume.experienceTitle || "Experience",
-
-    education: resume.education || [],
-    skills: resume.skills || [],
-    projects: resume.projects || [],
-
-    templates: resume.templates || "classic",
-    accent_color: resume.accent_color || "#000000",
-    public: resume.public ?? false,
   };
 }
 
@@ -155,7 +181,8 @@ function MiniPreview({ resume }) {
     <div className="h-full w-full overflow-hidden bg-white p-4 text-[6px] leading-[8px] text-gray-700 select-none">
       <div className="text-center">
         <p className="text-[8px] font-bold text-gray-900">
-          {resume.fullName || "Your Name"}
+          {resume.fullName ||
+            "Your Name"}
         </p>
 
         <p className="text-[6.5px] text-gray-500">
@@ -163,7 +190,8 @@ function MiniPreview({ resume }) {
         </p>
 
         <p className="mt-0.5 text-gray-400">
-          {resume.contact || "Contact information"}
+          {resume.contact ||
+            "Contact information"}
         </p>
       </div>
 
@@ -173,7 +201,8 @@ function MiniPreview({ resume }) {
         </p>
 
         <p className="mt-0.5 text-indigo-900/70 line-clamp-3">
-          {resume.summary || "Professional summary"}
+          {resume.summary ||
+            "Professional summary"}
         </p>
       </div>
 
@@ -192,35 +221,49 @@ function MiniPreview({ resume }) {
           Professional Experience
         </p>
 
-        {resume.experience?.length > 0 ? (
-          resume.experience.map((exp, i) => (
-            <div
-              key={i}
-              className="mt-0.5 flex justify-between gap-1"
-            >
-              <div>
-                <p className="font-semibold text-gray-800">
-                  {exp.role}
-                </p>
+        {resume.experience?.length >
+        0 ? (
+          resume.experience.map(
+            (exp, index) => (
+              <div
+                key={`${exp.role || "experience"}-${index}`}
+                className="mt-0.5 flex justify-between gap-1"
+              >
+                <div>
+                  <p className="font-semibold text-gray-800">
+                    {exp.role}
+                  </p>
 
-                <p className="text-gray-400">
-                  {exp.company}
-                </p>
+                  <p className="text-gray-400">
+                    {exp.company}
+                  </p>
 
-                <ul className="mt-0.5 list-disc pl-1.5 text-gray-500">
-                  {exp.bullets.map((b, j) => (
-                    <li key={j} className="line-clamp-1">
-                      {b}
-                    </li>
-                  ))}
-                </ul>
+                  {exp.bullets?.length >
+                    0 && (
+                    <ul className="mt-0.5 list-disc pl-1.5 text-gray-500">
+                      {exp.bullets.map(
+                        (
+                          bullet,
+                          bulletIndex
+                        ) => (
+                          <li
+                            key={`${bullet}-${bulletIndex}`}
+                            className="line-clamp-1"
+                          >
+                            {bullet}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                <span className="shrink-0 whitespace-nowrap text-gray-400">
+                  {exp.dates}
+                </span>
               </div>
-
-              <span className="shrink-0 whitespace-nowrap text-gray-400">
-                {exp.dates}
-              </span>
-            </div>
-          ))
+            )
+          )
         ) : (
           <p className="mt-1 text-gray-400">
             Experience
@@ -239,37 +282,52 @@ function MiniPreview({ resume }) {
 
 function CardMenu({
   onRename,
-  onDuplicate,
   onDownload,
   onDelete,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] =
+    useState(false);
+
   const ref = useRef(null);
 
   useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) {
+    const handleClickOutside = (
+      event
+    ) => {
+      if (
+        ref.current &&
+        !ref.current.contains(
+          event.target
+        )
+      ) {
         setOpen(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClick);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
 
     return () => {
-      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
     };
   }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Duplicate Removed
+  |--------------------------------------------------------------------------
+  */
 
   const items = [
     {
       label: "Rename",
       icon: Pencil,
       action: onRename,
-    },
-    {
-      label: "Duplicate",
-      icon: Copy,
-      action: onDuplicate,
     },
     {
       label: "Download",
@@ -285,12 +343,20 @@ function CardMenu({
   ];
 
   return (
-    <div className="relative" ref={ref}>
+    <div
+      className="relative"
+      ref={ref}
+    >
       <button
         type="button"
         aria-label="Resume options"
-        onClick={() => setOpen((o) => !o)}
-        className=" rounded-full p-1.5 text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+        aria-expanded={open}
+        onClick={() =>
+          setOpen(
+            (value) => !value
+          )
+        }
+        className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
       >
         <MoreVertical size={18} />
       </button>
@@ -298,18 +364,24 @@ function CardMenu({
       {open && (
         <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
           {items.map(
-            ({ label, icon: Icon, action, danger }) => (
+            ({
+              label,
+              icon: Icon,
+              action,
+              danger,
+            }) => (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
-                  action?.();
                   setOpen(false);
+                  action?.();
                 }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 ${danger
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                  danger
                     ? "text-red-600"
                     : "text-gray-700"
-                  }`}
+                }`}
               >
                 <Icon size={14} />
                 {label}
@@ -330,29 +402,32 @@ function CardMenu({
 
 function ResumeCard({
   resume,
-   onOpen,
+  onOpen,
   onRename,
-  onDuplicate,
   onDownload,
   onDelete,
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draftName, setDraftName] = useState(resume.name);
+  const [editing, setEditing] =
+    useState(false);
 
-  useEffect(() => {
-    setDraftName(resume.name);
-  }, [resume.name]);
+  const [draftName, setDraftName] =
+    useState(resume.name);
 
   const commitRename = () => {
+    const trimmedName =
+      draftName.trim();
+
     setEditing(false);
 
-    const trimmed = draftName.trim();
-
-    if (trimmed && trimmed !== resume.name) {
-      onRename(trimmed);
-    } else {
+    if (
+      !trimmedName ||
+      trimmedName === resume.name
+    ) {
       setDraftName(resume.name);
+      return;
     }
+
+    onRename(trimmedName);
   };
 
   return (
@@ -362,7 +437,9 @@ function ResumeCard({
         onClick={onOpen}
         className="aspect-[3/4] w-full overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-sm transition-shadow group-hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
       >
-        <MiniPreview resume={resume} />
+        <MiniPreview
+          resume={resume}
+        />
       </button>
 
       <div className="mt-3 flex items-start justify-between gap-2">
@@ -371,17 +448,28 @@ function ResumeCard({
             <input
               autoFocus
               value={draftName}
-              onChange={(e) =>
-                setDraftName(e.target.value)
+              onChange={(event) =>
+                setDraftName(
+                  event.target.value
+                )
               }
               onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  event.preventDefault();
                   commitRename();
                 }
 
-                if (e.key === "Escape") {
-                  setDraftName(resume.name);
+                if (
+                  event.key ===
+                  "Escape"
+                ) {
+                  setDraftName(
+                    resume.name
+                  );
+
                   setEditing(false);
                 }
               }}
@@ -394,13 +482,18 @@ function ResumeCard({
           )}
 
           <p className="text-sm text-gray-400">
-            {timeAgo(resume.editedAt)} • {resume.size}
+            {timeAgo(
+              resume.editedAt
+            )}{" "}
+            • {resume.size}
           </p>
         </div>
 
         <CardMenu
-          onRename={() => setEditing(true)}
-          onDuplicate={onDuplicate}
+          onRename={() => {
+            setDraftName(resume.name);
+            setEditing(true);
+          }}
           onDownload={onDownload}
           onDelete={onDelete}
         />
@@ -417,18 +510,24 @@ function ResumeCard({
 
 export default function ResumeDashboard() {
   const navigate = useNavigate();
-  const [active, setActive] = useState("resume");
-  const { user, isSignedIn, isLoading } = useAuth();
+
+  const [active, setActive] =
+    useState("resume");
+
+  const {
+    user,
+    isSignedIn,
+    isLoading,
+  } = useAuth();
 
   /*
   |--------------------------------------------------------------------------
-  | IMPORTANT:
-  | Start with EMPTY array.
-  | No demoResume / seedResume.
+  | Resumes
   |--------------------------------------------------------------------------
   */
 
-  const [resumes, setResumes] = useState([]);
+  const [resumes, setResumes] =
+    useState([]);
 
   /*
   |--------------------------------------------------------------------------
@@ -439,55 +538,88 @@ export default function ResumeDashboard() {
   useEffect(() => {
     let mounted = true;
 
-    const loadResumes = async () => {
-      /*
-      |--------------------------------------------------------------------------
-      | Wait until Firebase finishes restoring the auth session.
-      |--------------------------------------------------------------------------
-      */
+    const loadResumes =
+      async () => {
+        /*
+        |--------------------------------------------------------------------------
+        | Wait for Firebase Auth
+        |--------------------------------------------------------------------------
+        */
 
-      if (isLoading) {
-        return;
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | User is not authenticated.
-      |--------------------------------------------------------------------------
-      */
-
-      if (!isSignedIn || !user) {
-        if (mounted) {
-          setResumes([]);
+        if (isLoading) {
+          return;
         }
 
-        return;
-      }
+        /*
+        |--------------------------------------------------------------------------
+        | User Not Authenticated
+        |--------------------------------------------------------------------------
+        */
 
-      try {
-        const response = await getResumes();
+        if (
+          !isSignedIn ||
+          !user
+        ) {
+          if (mounted) {
+            setResumes([]);
+          }
 
-        if (!mounted) return;
+          return;
+        }
 
-        const normalizedResumes = (
-          response.resumes || []
-        ).map(normalizeResume);
+        try {
+          const response =
+            await getResumes();
 
-        setResumes(normalizedResumes);
-      } catch (error) {
-        console.error(
-          "Failed to load resumes:",
-          error
-        );
-      }
-    };
+          if (!mounted) {
+            return;
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Backend response:
+          |
+          | {
+          |   success: true,
+          |   count: ...,
+          |   resumes: [...]
+          | }
+          |--------------------------------------------------------------------------
+          */
+
+          const resumeList =
+            Array.isArray(
+              response?.resumes
+            )
+              ? response.resumes
+              : [];
+
+          const normalizedResumes =
+            resumeList.map(
+              normalizeResume
+            );
+
+          setResumes(
+            normalizedResumes
+          );
+        } catch (error) {
+          console.error(
+            "Failed to load resumes:",
+            error
+          );
+        }
+      };
 
     loadResumes();
 
     return () => {
       mounted = false;
     };
-  }, [isLoading, isSignedIn, user]);
+  }, [
+    isLoading,
+    isSignedIn,
+    user,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -495,14 +627,49 @@ export default function ResumeDashboard() {
   |--------------------------------------------------------------------------
   */
 
-  const addResume = (createdResume) => {
-    const normalizedResume =
-      normalizeResume(createdResume);
+  const addResume = (
+    createdResume
+  ) => {
+    if (!createdResume) {
+      return;
+    }
 
-    setResumes((prev) => [
-      normalizedResume,
-      ...prev,
-    ]);
+    const normalizedResume =
+      normalizeResume(
+        createdResume
+      );
+
+    setResumes(
+      (previousResumes) => {
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent duplicate card
+        |--------------------------------------------------------------------------
+        */
+
+        const alreadyExists =
+          previousResumes.some(
+            (resume) =>
+              resume.id ===
+              normalizedResume.id
+          );
+
+        if (alreadyExists) {
+          return previousResumes.map(
+            (resume) =>
+              resume.id ===
+              normalizedResume.id
+                ? normalizedResume
+                : resume
+          );
+        }
+
+        return [
+          normalizedResume,
+          ...previousResumes,
+        ];
+      }
+    );
   };
 
   /*
@@ -511,85 +678,58 @@ export default function ResumeDashboard() {
   |--------------------------------------------------------------------------
   */
 
-  const renameResume = async (resumeId, name) => {
+  const renameResume = async (
+    resumeId,
+    name
+  ) => {
+    const trimmedName =
+      name.trim();
+
+    if (
+      !resumeId ||
+      !trimmedName
+    ) {
+      return;
+    }
+
     try {
-      const response = await updateResume(
-        resumeId,
-        {
-          title: name,
-        }
-      );
+      const response =
+        await updateResume(
+          resumeId,
+          {
+            title: trimmedName,
+          }
+        );
+
+      if (!response?.resume) {
+        throw new Error(
+          "Updated resume was not returned by the server."
+        );
+      }
 
       const updatedResume =
-        normalizeResume(response.resume);
+        normalizeResume(
+          response.resume
+        );
 
-      setResumes((prev) =>
-        prev.map((resume) =>
-          resume.id === resumeId
-            ? updatedResume
-            : resume
-        )
+      setResumes(
+        (previousResumes) =>
+          previousResumes.map(
+            (resume) =>
+              resume.id === resumeId
+                ? updatedResume
+                : resume
+          )
       );
     } catch (error) {
       console.error(
         "Failed to rename resume:",
         error
       );
-    }
-  };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Duplicate Resume
-  |--------------------------------------------------------------------------
-  */
-
-  const duplicateResume = async (resumeId) => {
-    try {
-      const source = resumes.find(
-        (resume) => resume.id === resumeId
-      );
-
-      if (!source) return;
-
-      const duplicateTitle = `${source.name} copy`;
-
-      const response = await createResume(
-        getCreatePayload(
-          source,
-          duplicateTitle
-        )
-      );
-
-      const duplicatedResume =
-        normalizeResume(response.resume);
-
-      setResumes((prev) => {
-        const index = prev.findIndex(
-          (resume) => resume.id === resumeId
-        );
-
-        if (index === -1) {
-          return [
-            duplicatedResume,
-            ...prev,
-          ];
-        }
-
-        const next = [...prev];
-
-        next.splice(
-          index + 1,
-          0,
-          duplicatedResume
-        );
-
-        return next;
-      });
-    } catch (error) {
-      console.error(
-        "Failed to duplicate resume:",
-        error
+      window.alert(
+        error?.message ||
+          "Failed to rename resume. Please try again."
       );
     }
   };
@@ -600,22 +740,58 @@ export default function ResumeDashboard() {
   |--------------------------------------------------------------------------
   */
 
-  const deleteResume = async (resumeId) => {
-    try {
-      await deleteResumeFromBackend(resumeId);
+  const handleDeleteResume =
+    async (resumeId) => {
+      if (!resumeId) {
+        return;
+      }
 
-      setResumes((prev) =>
-        prev.filter(
-          (resume) => resume.id !== resumeId
-        )
-      );
-    } catch (error) {
-      console.error(
-        "Failed to delete resume:",
-        error
-      );
-    }
-  };
+      const confirmed =
+        window.confirm(
+          "Are you sure you want to delete this resume?"
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        /*
+        |--------------------------------------------------------------------------
+        | Backend delete FIRST
+        |--------------------------------------------------------------------------
+        */
+
+        await deleteResumeFromBackend(
+          resumeId
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove from local dashboard
+        |--------------------------------------------------------------------------
+        */
+
+        setResumes(
+          (previousResumes) =>
+            previousResumes.filter(
+              (resume) =>
+                resume.id !==
+                resumeId
+            )
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete resume:",
+          error
+        );
+
+        window.alert(
+          error?.message ||
+            "Failed to delete resume. Please try again."
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -626,11 +802,19 @@ export default function ResumeDashboard() {
   |
   */
 
-  const downloadResume = (resume) => {
-    alert(
+  const downloadResume = (
+    resume
+  ) => {
+    window.alert(
       `Download for "${resume.name}" will be connected to the PDF export API.`
     );
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-white md:flex-row">
@@ -649,18 +833,22 @@ export default function ResumeDashboard() {
             Your first resume is free forever. Need more than one resume?{" "}
             <a
               href="#"
+              onClick={(event) =>
+                event.preventDefault()
+              }
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-rose-500"
             >
               Upgrade your plan
             </a>
           </p>
 
-          <div className=" mt-8 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <NewResumeCard
               onCreate={addResume}
             />
 
-            {resumes.length === 0 ? (
+            {resumes.length ===
+            0 ? (
               <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
                 <FileText
                   size={28}
@@ -672,36 +860,41 @@ export default function ResumeDashboard() {
                 </p>
               </div>
             ) : (
-              resumes.map((resume) => (
-                <ResumeCard
-                  key={resume.id || resume.resumeId}
-                  resume={resume}
-                  onOpen={() =>
-  navigate(`/resumebuilder/${resume.id}`)
-}
-                  onRename={(name) =>
-                    renameResume(
-                      resume.id,
-                      name
-                    )
-                  }
-                  onDuplicate={() =>
-                    duplicateResume(
+              resumes.map(
+                (resume) => (
+                  <ResumeCard
+                    key={
                       resume.id
-                    )
-                  }
-                  onDownload={() =>
-                    downloadResume(
+                    }
+                    resume={
                       resume
-                    )
-                  }
-                  onDelete={() =>
-                    deleteResume(
-                      resume.id
-                    )
-                  }
-                />
-              ))
+                    }
+                    onOpen={() =>
+                      navigate(
+                        `/resumebuilder/${resume.id}`
+                      )
+                    }
+                    onRename={(
+                      name
+                    ) =>
+                      renameResume(
+                        resume.id,
+                        name
+                      )
+                    }
+                    onDownload={() =>
+                      downloadResume(
+                        resume
+                      )
+                    }
+                    onDelete={() =>
+                      handleDeleteResume(
+                        resume.id
+                      )
+                    }
+                  />
+                )
+              )
             )}
           </div>
         </div>
@@ -709,16 +902,4 @@ export default function ResumeDashboard() {
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| Backend Delete Alias
-|--------------------------------------------------------------------------
-|
-| Prevents conflict between local function name and imported API function.
-|
-*/
-
-import {
-  deleteResume as deleteResumeFromBackend,
-} from "../../api/resumeApi";
+  
